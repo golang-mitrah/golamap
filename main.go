@@ -20,6 +20,9 @@ func main() {
 	router.HandleFunc("/reverseGeocoding", resources.ReverseGeocodeHandler).Methods("GET")
 	router.HandleFunc("/titleJson", resources.GetTileJSONHandler).Methods("GET")
 	router.HandleFunc("/pbfFile", resources.GetPbfFileHandler).Methods("GET")
+	router.HandleFunc("/routing/distanceMatrix", resources.GetDistanceMatrixHandler).Methods("GET")
+	router.HandleFunc("/mapTiles/ArrayData", resources.ArrayOfDataHandler).Methods("GET")
+	router.HandleFunc("/mapTiles/styleDetails", resources.GetStyleDetailsHandler).Methods("GET")
 
 	log.Println("Starting Ola Maps server on :8080...")
 	if err := http.ListenAndServe(":8080", router); err != nil {

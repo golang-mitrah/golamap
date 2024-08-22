@@ -274,3 +274,107 @@ func GetPbfFileHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
 	}
 }
+
+func GetDistanceMatrixHandler(w http.ResponseWriter, r *http.Request) {
+	query := r.URL.Query()
+	origins := query.Get("origins")
+	destinations := query.Get("destinations")
+
+	if origins == "" || destinations == "" {
+		http.Error(w, "Missing required query parameters: 'origins' and/or 'destinations'", http.StatusBadRequest)
+		return
+	}
+
+	// Extract optional headers
+	// xRequestID := r.Header.Get("x_request_id")
+	// xCorrelationID := r.Header.Get("x_correlation_id")
+	oauthToken := r.Header.Get("Authorization")
+
+	// Construct the URL for the Olamaps API request
+	url := fmt.Sprintf("https://api.olamaps.io/routing/v1/distanceMatrix?origins=%s&destinations=%s",
+		url.QueryEscape(origins), url.QueryEscape(destinations))
+
+	// Define a variable to hold the API response
+	var apiResponse map[string]interface{}
+	requestID := uuid.New().String()
+
+	// Make the external request
+	err := internal.MakeExternalRequest("GET", url, requestID, oauthToken, &apiResponse)
+	if err != nil {
+		http.Error(w, "Failed to send request to Olamaps API", http.StatusInternalServerError)
+		return
+	}
+
+	// Respond with the API response
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	if err := json.NewEncoder(w).Encode(apiResponse); err != nil {
+		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
+	}
+}
+
+func ArrayOfDataHandler(w http.ResponseWriter, r *http.Request) {
+	datasetName := r.URL.Query().Get("dataset_name")
+	if datasetName == "" {
+		http.Error(w, "Missing required query parameter: 'dataset_name'", http.StatusBadRequest)
+		return
+	}
+
+	// Extract optional headers
+	oauthToken := r.Header.Get("Authorization")
+
+	// Construct the URL for the Olamaps API request
+	apiURL := fmt.Sprintf("https://api.olamaps.io/tiles/vector/v1/data/%s.json", url.QueryEscape(datasetName))
+
+	// Define a variable to hold the API response
+	var apiResponse map[string]interface{}
+	requestID := uuid.New().String()
+
+	// Make the external request
+	err := internal.MakeExternalRequest("GET", apiURL, requestID, oauthToken, &apiResponse)
+	if err != nil {
+		http.Error(w, "Failed to send request to Olamaps API", http.StatusInternalServerError)
+		return
+	}
+
+	// Respond with the API response
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	if err := json.NewEncoder(w).Encode(apiResponse); err != nil {
+		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
+	}
+}
+
+func GetStyleDetailsHandler(w http.ResponseWriter, r *http.Request) {
+	// Extract the style_name query parameter
+	styleName := r.URL.Query().Get("style_name")
+	if styleName == "" {
+		http.Error(w, "Missing required query parameter: 'style_name'", http.StatusBadRequest)
+		return
+	}
+
+	// Extract optional headers
+	oauthToken := r.Header.Get("Authorization")
+
+	// Construct the URL for the Olamaps API request
+	apiURL := fmt.Sprintf("https://api.olamaps.io/tiles/vector/v1/styles/%s/style.json", url.QueryEscape(styleName))
+
+	// Define a variable to hold the API response
+	var apiResponse map[string]interface{}
+	requestID := uuid.New().String()
+
+	fmt.Println()
+	// Make the external request
+	err := internal.MakeExternalRequest("GET", apiURL, requestID, oauthToken, &apiResponse)
+	if err != nil {
+		http.Error(w, "Failed to send request to Olamaps API", http.StatusInternalServerError)
+		return
+	}
+
+	// Respond with the API response
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	if err := json.NewEncoder(w).Encode(apiResponse); err != nil {
+		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
+	}
+}
