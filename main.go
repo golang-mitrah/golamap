@@ -23,6 +23,7 @@ func main() {
 	router.HandleFunc("/routing/distanceMatrix", resources.GetDistanceMatrixHandler).Methods("GET")
 	router.HandleFunc("/mapTiles/ArrayData", resources.ArrayOfDataHandler).Methods("GET")
 	router.HandleFunc("/mapTiles/styleDetails", resources.GetStyleDetailsHandler).Methods("GET")
+	router.HandleFunc("/map/style", resources.GetMapStyleHandler).Methods("GET")
 
 	log.Println("Starting Ola Maps server on :8080...")
 	if err := http.ListenAndServe(":8080", router); err != nil {

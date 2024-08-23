@@ -378,3 +378,32 @@ func GetStyleDetailsHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
 	}
 }
+
+func GetMapStyleHandler(w http.ResponseWriter, r *http.Request) {
+	// Extract query parameters
+	oauthToken := r.Header.Get("Authorization")
+	if oauthToken == "" {
+		http.Error(w, "Missing OAuth token", http.StatusUnauthorized)
+		return
+	}
+
+	apiURL := "https://api.olamaps.io/tiles/vector/v1/styles.json"
+
+	// Define a variable to hold the API response
+	var apiResponse []map[string]interface{}
+	requestID := uuid.New().String()
+
+	// Make the external request
+	err := internal.MakeExternalRequest("GET", apiURL, requestID, oauthToken, &apiResponse)
+	if err != nil {
+		http.Error(w, "Failed to send request to Olamaps API", http.StatusInternalServerError)
+		return
+	}
+
+	// Respond with the API response
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	if err := json.NewEncoder(w).Encode(apiResponse); err != nil {
+		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
+	}
+}
