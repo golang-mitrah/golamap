@@ -66,12 +66,13 @@ func TestGetAccessTokens(t *testing.T) {
 			}))
 			defer server.Close()
 
+			OLAMap := &OLAMap{}
 			// Call the function with the test case parameters
-			token, err := GetAccessToken(testData.clientID, testData.clientSecret, server.URL+"/token")
+			err := OLAMap.ConfigureAccessToken(testData.clientID, testData.clientSecret)
 
 			// Check results
-			if token != testData.expectedToken {
-				t.Errorf("expected token %s, got %s", testData.expectedToken, token)
+			if OLAMap.Token != testData.expectedToken {
+				t.Errorf("expected token %s, got %s", testData.expectedToken, OLAMap.Token)
 			}
 			if err != nil && err.Error() != testData.expectedError.Error() {
 				t.Errorf("expected error %v, got %v", testData.expectedError, err)

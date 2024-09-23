@@ -1,10 +1,8 @@
 package resources
 
 import (
-	"encoding/json"
+	"errors"
 	"fmt"
-	"io"
-	"log"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -15,73 +13,41 @@ import (
 	"github.com/ola-maps/internal/app"
 )
 
-func GetTokenHandler(w http.ResponseWriter, r *http.Request) {
-	// get access token
-	token, err := GetAccessToken(app.ClientID, app.ClientSecret, app.TokenURL)
-	if err != nil {
-		log.Printf("Error getting access token: %v", err)
-		http.Error(w, "Unable to get access token", http.StatusInternalServerError)
-		return
-	}
-
-	// Return the token as a JSON response
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"access_token": token})
-}
-func GetDirectionsHandler(w http.ResponseWriter, r *http.Request) {
-	query := r.URL.Query()
-	origin := query.Get("origin")
-	destination := query.Get("destination")
-
+// Get directions
+func (o *OLAMap) GetDirections(origin, destination string) (interface{}, error) {
 	if origin == "" || destination == "" {
-		http.Error(w, "Missing required query parameters: 'origin' and/or 'destination'", http.StatusBadRequest)
-		return
+		return nil, errors.New("Missing required query parameters: 'origin' and/or 'destination'")
 	}
 
-	oauthToken := r.Header.Get("Authorization")
+	oauthToken := o.Token
 	if oauthToken == "" {
-		http.Error(w, "Missing OAuth token", http.StatusUnauthorized)
-		return
+		return nil, errors.New("Invalid OAuth token")
 	}
 
-	// Construct the URL for the Olamaps API request
 	url := fmt.Sprintf(app.DirectionsURL, origin, destination)
 
 	// Define a variable to hold the API response
 	var apiResponse map[string]interface{}
-	requestID := uuid.New().String()
+
 	// Make external request
-	err := internal.MakeExternalRequest("POST", url, requestID, oauthToken, &apiResponse)
+	err := internal.MakeExternalRequest("POST", url, o.RequestId, oauthToken, &apiResponse)
 	if err != nil {
-		http.Error(w, "Failed to send request to Olamaps API", http.StatusInternalServerError)
-		return
+		return nil, errors.New("failed to send request to Olamaps API")
 	}
 
-	// Respond with the API response
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	if err := json.NewEncoder(w).Encode(apiResponse); err != nil {
-		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
-	}
+	return apiResponse, nil
 }
 
-func PlaceAutoCompleteHandler(w http.ResponseWriter, r *http.Request) {
-	query := r.URL.Query()
-	input := query.Get("input")
-
+// PlaceAutoComplete
+func (o *OLAMap) PlaceAutoComplete(input string) (interface{}, error) {
 	if input == "" {
-		http.Error(w, "Missing 'input' query parameter", http.StatusBadRequest)
-		return
+		return nil, errors.New("Missing required query parameters: 'input'")
 	}
 
-	// Retrieve the OAuth token and request ID from the headers
-	oauthToken := r.Header.Get("Authorization")
+	oauthToken := o.Token
 	if oauthToken == "" {
-		http.Error(w, "Missing OAuth token", http.StatusUnauthorized)
-		return
+		return nil, errors.New("Invalid OAuth token")
 	}
-
-	requestID := uuid.New().String()
 
 	// Construct the URL for the Olamaps API request
 	url := fmt.Sprintf(app.PlaceAutoCompleteURL, input)
@@ -90,87 +56,50 @@ func PlaceAutoCompleteHandler(w http.ResponseWriter, r *http.Request) {
 	var apiResponse map[string]interface{}
 
 	// Make the external request
-	err := internal.MakeExternalRequest("GET", url, requestID, oauthToken, &apiResponse)
+	err := internal.MakeExternalRequest("GET", url, o.RequestId, oauthToken, &apiResponse)
 	if err != nil {
-		http.Error(w, "Failed to send request to Olamaps API", http.StatusInternalServerError)
-		return
+		return nil, errors.New("failed to send request to Olamaps API")
 	}
 
-	// Respond with the API response
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	if err := json.NewEncoder(w).Encode(apiResponse); err != nil {
-		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
-	}
+	return apiResponse, nil
 }
 
-func GeoCodeHandler(w http.ResponseWriter, r *http.Request) {
-	// Extract query parameters from the URL
-	query := r.URL.Query()
-	address := query.Get("address")
-	bounds := query.Get("bounds")
-	language := query.Get("language")
-
-	if address == "" && bounds == "" && language == "" {
-		http.Error(w, "Missing required query parameters", http.StatusBadRequest)
-		return
+// GeoCode
+func (o *OLAMap) GeoCode(address, bounds, language string) (interface{}, error) {
+	if address == "" {
+		return nil, errors.New("Missing required query parameters: 'address'")
 	}
 
-	// Retrieve the OAuth token and request ID from the headers
-	oauthToken := r.Header.Get("Authorization")
+	oauthToken := o.Token
 	if oauthToken == "" {
-		http.Error(w, "Missing OAuth token", http.StatusUnauthorized)
-		return
+		return nil, errors.New("Invalid OAuth token")
 	}
-
-	// Retrieve the X-Request-Id from the headers
-	requestID := uuid.New().String()
 
 	// Construct the URL for the Olamaps API request
-	url := fmt.Sprintf(
-		app.GeoCodeURL,
-		address,
-		bounds,
-		language,
-	)
+	url := fmt.Sprintf(app.GeoCodeURL, address, bounds, language)
 
 	// Define a variable to hold the API response
 	var apiResponse map[string]interface{}
 
 	// Make the external request
-	err := internal.MakeExternalRequest("GET", url, requestID, oauthToken, &apiResponse)
+	err := internal.MakeExternalRequest("GET", url, o.RequestId, oauthToken, &apiResponse)
 	if err != nil {
-		http.Error(w, "Failed to send request to Olamaps API", http.StatusInternalServerError)
-		return
+		return nil, errors.New("failed to send request to Olamaps API")
 	}
 
-	// Respond with the API response
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	if err := json.NewEncoder(w).Encode(apiResponse); err != nil {
-		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
-	}
+	return apiResponse, nil
 }
 
-func ReverseGeocodeHandler(w http.ResponseWriter, r *http.Request) {
-	// Extract query parameters from the URL
-	query := r.URL.Query()
-	latlng := query.Get("latlng")
-
+// ReverseGeocode
+func (o *OLAMap) ReverseGeocode(latlng string) (interface{}, error) {
 	if latlng == "" {
-		http.Error(w, "Missing required query parameter: latlng", http.StatusBadRequest)
-		return
+		return nil, errors.New("Missing required query parameters: 'latlng'")
 	}
 
-	// Retrieve the OAuth token and request ID from the headers
-	oauthToken := r.Header.Get("Authorization")
+	oauthToken := o.Token
 	if oauthToken == "" {
-		http.Error(w, "Missing OAuth token", http.StatusUnauthorized)
-		return
+		return nil, errors.New("Invalid OAuth token")
 	}
-
-	// Retrieve the X-Request-Id from the headers
-	requestID := uuid.New().String()
 
 	// Construct the URL for the API request
 	urlWithParams := fmt.Sprintf(app.ReverseGeocodeURL, url.QueryEscape(latlng))
@@ -179,74 +108,24 @@ func ReverseGeocodeHandler(w http.ResponseWriter, r *http.Request) {
 	var apiResponse map[string]interface{}
 
 	// Make the external request
-	err := internal.MakeExternalRequest("GET", urlWithParams, requestID, oauthToken, &apiResponse)
+	err := internal.MakeExternalRequest("GET", urlWithParams, o.RequestId, oauthToken, &apiResponse)
 	if err != nil {
-		http.Error(w, "Failed to send request to API", http.StatusInternalServerError)
-		return
+		return nil, errors.New("failed to send request to Olamaps API")
 	}
 
-	// Respond with the API response
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	if err := json.NewEncoder(w).Encode(apiResponse); err != nil {
-		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
-	}
+	return apiResponse, nil
 }
 
-func GetPbfFileHandler(w http.ResponseWriter, r *http.Request) {
-	// Extract dataset name from URL path
-	datasetName := r.URL.Query().Get("dataset_name")
-	z := r.URL.Query().Get("z")
-	x := r.URL.Query().Get("x")
-	y := r.URL.Query().Get("y")
-
-	if datasetName == "" && z == "" && x == "" && y == "" {
-		http.Error(w, "Missing required query parameters: dataset_name, z, x, y", http.StatusBadRequest)
-		return
-	}
-
-	// Retrieve the OAuth token and request ID from the headers
-	oauthToken := r.Header.Get("Authorization")
-	if oauthToken == "" {
-		http.Error(w, "Missing OAuth token", http.StatusUnauthorized)
-		return
-	}
-
-	// Retrieve the X-Request-Id from the headers
-	requestID := uuid.New().String()
-
-	// Construct the URL for the API request
-	urlWithParams := fmt.Sprintf(app.PbfFileURL, url.PathEscape(datasetName), url.PathEscape(z), url.PathEscape(x), url.PathEscape(y))
-
-	// Define a variable to hold the API response
-	var apiResponse map[string]interface{}
-
-	// Make the external request
-	err := internal.MakeExternalRequest("GET", urlWithParams, requestID, oauthToken, &apiResponse)
-	if err != nil {
-		http.Error(w, "Failed to send request to API", http.StatusInternalServerError)
-		return
-	}
-
-	// Respond with the API response
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	if err := json.NewEncoder(w).Encode(apiResponse); err != nil {
-		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
-	}
-}
-
-func GetDistanceMatrixHandler(w http.ResponseWriter, r *http.Request) {
-	query := r.URL.Query()
-	origins := query.Get("origins")
-	destinations := query.Get("destinations")
-
+// GetDistanceMatrix
+func (o *OLAMap) GetDistanceMatrix(origins, destinations string) (interface{}, error) {
 	if origins == "" || destinations == "" {
-		http.Error(w, "Missing required query parameters: 'origins' and/or 'destinations'", http.StatusBadRequest)
-		return
+		return nil, errors.New("Missing required query parameters: 'origin' and/or 'destination'")
 	}
 
-	oauthToken := r.Header.Get("Authorization")
+	oauthToken := o.Token
+	if oauthToken == "" {
+		return nil, errors.New("Invalid OAuth token")
+	}
 
 	// Construct the URL for the Olamaps API request
 	url := fmt.Sprintf(app.DistanceMatrixURL,
@@ -254,68 +133,51 @@ func GetDistanceMatrixHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Define a variable to hold the API response
 	var apiResponse map[string]interface{}
-	requestID := uuid.New().String()
 
 	// Make the external request
-	err := internal.MakeExternalRequest("GET", url, requestID, oauthToken, &apiResponse)
+	err := internal.MakeExternalRequest("GET", url, o.RequestId, oauthToken, &apiResponse)
 	if err != nil {
-		http.Error(w, "Failed to send request to Olamaps API", http.StatusInternalServerError)
-		return
+		return nil, errors.New("failed to send request to Olamaps API")
 	}
 
-	// Respond with the API response
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	if err := json.NewEncoder(w).Encode(apiResponse); err != nil {
-		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
-	}
+	return apiResponse, nil
 }
 
-func ArrayOfDataHandler(w http.ResponseWriter, r *http.Request) {
-	datasetName := r.URL.Query().Get("dataset_name")
+// ArrayOfData
+func (o *OLAMap) ArrayOfData(datasetName string) (interface{}, error) {
 	if datasetName == "" {
-		http.Error(w, "Missing required query parameter: 'dataset_name'", http.StatusBadRequest)
-		return
+		return nil, errors.New("Missing required query parameters: 'datasetname'")
 	}
 
-	// Extract optional headers
-	oauthToken := r.Header.Get("Authorization")
+	oauthToken := o.Token
+	if oauthToken == "" {
+		return nil, errors.New("Invalid OAuth token")
+	}
 
 	// Construct the URL for the Olamaps API request
 	apiURL := fmt.Sprintf(app.ArrayOfDataURL, url.QueryEscape(datasetName))
 
 	// Define a variable to hold the API response
 	var apiResponse map[string]interface{}
-	requestID := uuid.New().String()
 
 	// Make the external request
-	err := internal.MakeExternalRequest("GET", apiURL, requestID, oauthToken, &apiResponse)
+	err := internal.MakeExternalRequest("GET", apiURL, o.RequestId, oauthToken, &apiResponse)
 	if err != nil {
-		http.Error(w, "Failed to send request to Olamaps API", http.StatusInternalServerError)
-		return
+		return nil, errors.New("failed to send request to Olamaps API")
 	}
 
-	// Respond with the API response
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	if err := json.NewEncoder(w).Encode(apiResponse); err != nil {
-		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
-	}
+	return apiResponse, nil
 }
 
-func GetStyleDetailsHandler(w http.ResponseWriter, r *http.Request) {
-	// Extract the style_name query parameter
-	styleName := r.URL.Query().Get("style_name")
+// GetStyleDetails
+func (o *OLAMap) GetStyleDetails(styleName string) (interface{}, error) {
 	if styleName == "" {
-		http.Error(w, "Missing required query parameter: 'style_name'", http.StatusBadRequest)
-		return
+		return nil, errors.New("Missing required query parameters: 'stylename'")
 	}
 
-	// Extract optional headers
-	oauthToken := r.Header.Get("Authorization")
+	oauthToken := o.Token
 	if oauthToken == "" {
-		http.Error(w, "Missing OAuth token", http.StatusUnauthorized)
-		return
+		return nil, errors.New("Invalid OAuth token")
 	}
 
 	// Construct the URL for the Olamaps API request
@@ -323,186 +185,123 @@ func GetStyleDetailsHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Define a variable to hold the API response
 	var apiResponse map[string]interface{}
-	requestID := uuid.New().String()
 
 	// Make the external request
-	err := internal.MakeExternalRequest("GET", apiURL, requestID, oauthToken, &apiResponse)
+	err := internal.MakeExternalRequest("GET", apiURL, o.RequestId, oauthToken, &apiResponse)
 	if err != nil {
-		http.Error(w, "Failed to send request to Olamaps API", http.StatusInternalServerError)
-		return
+		return nil, errors.New("failed to send request to Olamaps API")
 	}
 
-	// Respond with the API response
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	if err := json.NewEncoder(w).Encode(apiResponse); err != nil {
-		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
-	}
+	return apiResponse, nil
 }
 
-func GetMapStyleHandler(w http.ResponseWriter, r *http.Request) {
-	// Extract query parameters
-	oauthToken := r.Header.Get("Authorization")
+// GetMapStyle
+func (o *OLAMap) GetMapStyle() (interface{}, error) {
+	oauthToken := o.Token
 	if oauthToken == "" {
-		http.Error(w, "Missing OAuth token", http.StatusUnauthorized)
-		return
+		return nil, errors.New("Invalid OAuth token")
 	}
 
 	apiURL := app.MapStyleURL
 
 	// Define a variable to hold the API response
 	var apiResponse []map[string]interface{}
-	requestID := uuid.New().String()
 
 	// Make the external request
-	err := internal.MakeExternalRequest("GET", apiURL, requestID, oauthToken, &apiResponse)
+	err := internal.MakeExternalRequest("GET", apiURL, o.RequestId, oauthToken, &apiResponse)
 	if err != nil {
-		http.Error(w, "Failed to send request to Olamaps API", http.StatusInternalServerError)
-		return
+		return nil, errors.New("failed to send request to Olamaps API")
 	}
 
-	// Respond with the API response
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	if err := json.NewEncoder(w).Encode(apiResponse); err != nil {
-		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
-	}
+	return apiResponse, nil
 }
 
-func GetPlaceDetailHandler(w http.ResponseWriter, r *http.Request) {
-	// Extract query parameters
-	placeID := r.URL.Query().Get("place_id")
+// GetPlaceDetail
+func (o *OLAMap) GetPlaceDetail(placeID string) (interface{}, error) {
 	if placeID == "" {
-		http.Error(w, "Missing place_id query parameter", http.StatusBadRequest)
-		return
+		return nil, errors.New("Missing required query parameters: 'placeid'")
 	}
 
-	oauthToken := r.Header.Get("Authorization")
+	oauthToken := o.Token
 	if oauthToken == "" {
-		http.Error(w, "Missing OAuth token", http.StatusUnauthorized)
-		return
+		return nil, errors.New("Invalid OAuth token")
 	}
 
 	apiURL := fmt.Sprintf(app.PlaceDetailURL, placeID) // Replace with your actual endpoint
 
 	// Define a variable to hold the API response
 	var apiResponse map[string]interface{}
-	requestID := uuid.New().String()
 
 	// Make the external request
-	err := internal.MakeExternalRequest("GET", apiURL, requestID, oauthToken, &apiResponse)
+	err := internal.MakeExternalRequest("GET", apiURL, o.RequestId, oauthToken, &apiResponse)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		return nil, errors.New("failed to send request to Olamaps API")
 	}
 
-	// Respond with the API response
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	if err := json.NewEncoder(w).Encode(apiResponse); err != nil {
-		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
-	}
+	return apiResponse, nil
 }
 
-func GetNearBySearchHandler(w http.ResponseWriter, r *http.Request) {
-	layers := r.URL.Query().Get("layers")
-	location := r.URL.Query().Get("location")
-	if layers == "" || location == "" {
-		http.Error(w, "Missing required query parameters", http.StatusBadRequest)
-		return
+// GetNearBySearch
+func (o *OLAMap) GetNearBySearch(nearBySearch internal.NearBySearch) (interface{}, error) {
+	if nearBySearch.Layers == "" || nearBySearch.Location == "" {
+		return nil, errors.New("Missing required query parameters: 'layers' and/or 'location'")
 	}
 
-	types := r.URL.Query().Get("types")
-	radius := r.URL.Query().Get("radius")
-	strictbounds := r.URL.Query().Get("strictbounds")
-	withCentroid := r.URL.Query().Get("withCentroid")
-	limit := r.URL.Query().Get("limit")
-
-	oauthToken := r.Header.Get("Authorization")
+	oauthToken := o.Token
 	if oauthToken == "" {
-		http.Error(w, "Missing OAuth token", http.StatusUnauthorized)
-		return
+		return nil, errors.New("Invalid OAuth token")
 	}
 
-	apiURL := fmt.Sprintf(app.NearBySearchURL, layers, location, types, radius, strictbounds, withCentroid, limit)
-	requestID := uuid.New().String()
+	apiURL := fmt.Sprintf(app.NearBySearchURL, nearBySearch.Layers, nearBySearch.Location, nearBySearch.Types, nearBySearch.Radius, nearBySearch.Strictbounds, nearBySearch.WithCentroid, nearBySearch.Limit)
 
 	// Define a variable to hold the API response
 	var apiResponse map[string]interface{}
 
 	// Make the external request
-	err := internal.MakeExternalRequest("GET", apiURL, requestID, oauthToken, &apiResponse)
+	err := internal.MakeExternalRequest("GET", apiURL, o.RequestId, oauthToken, &apiResponse)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		return nil, errors.New("failed to send request to Olamaps API")
 	}
 
-	// Respond with the API response
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	if err := json.NewEncoder(w).Encode(apiResponse); err != nil {
-		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
-	}
+	return apiResponse, nil
 }
 
-func GetTextSearchHandler(w http.ResponseWriter, r *http.Request) {
+// GetTextSearch
+func (o *OLAMap) GetTextSearch(textSearch internal.TextSearch) (interface{}, error) {
 	// Extract query parameters
-	input := r.URL.Query().Get("input")
-	if input == "" {
-		http.Error(w, "Missing input query parameter", http.StatusBadRequest)
-		return
+	if textSearch.Input == "" {
+		return nil, errors.New("Missing required query parameters: 'input'")
 	}
 
-	// Extract optional query parameters
-	location := r.URL.Query().Get("location")
-	radius := r.URL.Query().Get("radius")
-	types := r.URL.Query().Get("types")
-	size := r.URL.Query().Get("size")
-
-	oauthToken := r.Header.Get("Authorization")
+	oauthToken := o.Token
 	if oauthToken == "" {
-		http.Error(w, "Missing OAuth token", http.StatusUnauthorized)
-		return
+		return nil, errors.New("Invalid OAuth token")
 	}
 
 	// Construct the API URL
-	apiURL := fmt.Sprintf(app.TextSearchURL, url.QueryEscape(input), location, radius, types, size)
+	apiURL := fmt.Sprintf(app.TextSearchURL, url.QueryEscape(textSearch.Input), textSearch.Location, textSearch.Radius, textSearch.Types, textSearch.Size)
 
 	// Define a variable to hold the API response
 	var apiResponse map[string]interface{}
-	requestID := uuid.New().String()
 
 	// Make the external request
-	err := internal.MakeExternalRequest("GET", apiURL, requestID, oauthToken, &apiResponse)
+	err := internal.MakeExternalRequest("GET", apiURL, o.RequestId, oauthToken, &apiResponse)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		return nil, errors.New("failed to send request to Olamaps API")
 	}
 
-	// Respond with the API response
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	if err := json.NewEncoder(w).Encode(apiResponse); err != nil {
-		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
-	}
+	return apiResponse, nil
 }
 
-func GetSnapToRoadHandler(w http.ResponseWriter, r *http.Request) {
-	// Extract query parameters
-	points := r.URL.Query().Get("points")
+// GetSnapToRoad
+func (o *OLAMap) GetSnapToRoad(points, enhancePath string) (interface{}, error) {
 	if points == "" {
-		http.Error(w, "Missing points query parameter", http.StatusBadRequest)
-		return
+		return nil, errors.New("Missing required query parameters: 'points'")
 	}
 
-	// Optional parameters
-	enhancePath := r.URL.Query().Get("enhancePath")
-
-	// Headers
-	oauthToken := r.Header.Get("Authorization")
+	oauthToken := o.Token
 	if oauthToken == "" {
-		http.Error(w, "Missing Authorization header", http.StatusUnauthorized)
-		return
+		return nil, errors.New("Invalid OAuth token")
 	}
 
 	// Build URL
@@ -513,43 +312,24 @@ func GetSnapToRoadHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Make the external request
 	var apiResponse map[string]interface{}
-	requestID := uuid.New().String()
-	err := internal.MakeExternalRequest("GET", apiURL, requestID, oauthToken, &apiResponse)
+	err := internal.MakeExternalRequest("GET", apiURL, o.RequestId, oauthToken, &apiResponse)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		return nil, errors.New("failed to send request to Olamaps API")
 	}
 
-	// Respond with the API response
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	if err := json.NewEncoder(w).Encode(apiResponse); err != nil {
-		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
-	}
+	return apiResponse, nil
 }
 
-func GetNearestRoadsHandler(w http.ResponseWriter, r *http.Request) {
-	// Extract query parameters
-	points := r.URL.Query().Get("points")
+// GetNearestRoads
+func (o *OLAMap) GetNearestRoads(points string, radius string) (interface{}, error) {
 	if points == "" {
-		http.Error(w, "Missing points query parameter", http.StatusBadRequest)
-		return
+		return nil, errors.New("Missing required query parameters: 'points' and/or 'radius'")
 	}
 
-	radius := r.URL.Query().Get("radius")
-	if radius == "" {
-		radius = "500" // Default radius
-	}
-
-	// Extract headers
-	oauthToken := r.Header.Get("Authorization")
+	oauthToken := o.Token
 	if oauthToken == "" {
-		http.Error(w, "Missing OAuth token", http.StatusUnauthorized)
-		return
+		return nil, errors.New("Invalid OAuth token")
 	}
-
-	// Generate request and correlation IDs
-	requestID := uuid.New().String()
 
 	// Build the API URL
 	apiURL := fmt.Sprintf(app.NearestRoadsURL, points, radius)
@@ -558,310 +338,208 @@ func GetNearestRoadsHandler(w http.ResponseWriter, r *http.Request) {
 	var apiResponse map[string]interface{}
 
 	// Make the external request
-	err := internal.MakeExternalRequest("GET", apiURL, requestID, oauthToken, &apiResponse)
+	err := internal.MakeExternalRequest("GET", apiURL, o.RequestId, oauthToken, &apiResponse)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		return nil, errors.New("failed to send request to Olamaps API")
 	}
 
-	// Respond with the API response
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	if err := json.NewEncoder(w).Encode(apiResponse); err != nil {
-		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
-	}
+	return apiResponse, nil
 }
 
-func GetStaticMapImageCenterHandler(w http.ResponseWriter, r *http.Request) {
-	// Extract query parameters
-	styleName := r.URL.Query().Get("styleName")
-	longitudeStr := r.URL.Query().Get("longitude")
-	latitudeStr := r.URL.Query().Get("latitude")
-	zoomLevelStr := r.URL.Query().Get("zoom")
-	imageWidthStr := r.URL.Query().Get("width")
-	imageHeightStr := r.URL.Query().Get("height")
-	imageFormat := r.URL.Query().Get("format")
-
+// GetStaticMapImageCenter
+func (o *OLAMap) GetStaticMapImageCenter(mapImageCenter internal.MapImageCenter) (interface{}, error) {
 	// Validate required parameters
-	if styleName == "" || longitudeStr == "" || latitudeStr == "" || zoomLevelStr == "" || imageWidthStr == "" || imageHeightStr == "" || imageFormat == "" {
-		http.Error(w, "Missing required query parameters", http.StatusBadRequest)
-		return
+	if mapImageCenter.Stylename == "" || mapImageCenter.Longitude == "" || mapImageCenter.Latitude == "" || mapImageCenter.Zoomlevel == "" || mapImageCenter.Imagewidth == "" || mapImageCenter.Imageheight == "" || mapImageCenter.Imageformat == "" {
+		return nil, errors.New("Missing required query parameters: 'stylename' or 'longitude' or 'latitude' or 'zoomlevel' or 'width' or 'height' or 'format'")
 	}
 
-	longitude, err := strconv.ParseFloat(longitudeStr, 64)
+	longitude, err := strconv.ParseFloat(mapImageCenter.Longitude, 64)
 	if err != nil {
-		http.Error(w, "Invalid longitude value", http.StatusBadRequest)
-		return
+		return nil, errors.New("Invalid longitude value")
 	}
 
-	latitude, err := strconv.ParseFloat(latitudeStr, 64)
+	latitude, err := strconv.ParseFloat(mapImageCenter.Latitude, 64)
 	if err != nil {
-		http.Error(w, "Invalid latitude value", http.StatusBadRequest)
-		return
+		return nil, errors.New("Invalid latitude value")
 	}
 
-	zoomLevel, err := strconv.Atoi(zoomLevelStr)
+	zoomLevel, err := strconv.Atoi(mapImageCenter.Zoomlevel)
 	if err != nil {
-		http.Error(w, "Invalid zoom level value", http.StatusBadRequest)
-		return
+		return nil, errors.New("Invalid zoom level value")
 	}
 
-	imageWidth, err := strconv.Atoi(imageWidthStr)
+	imageWidth, err := strconv.Atoi(mapImageCenter.Imagewidth)
 	if err != nil {
-		http.Error(w, "Invalid image width value", http.StatusBadRequest)
-		return
+		return nil, errors.New("Invalid image width value")
 	}
 
-	imageHeight, err := strconv.Atoi(imageHeightStr)
+	imageHeight, err := strconv.Atoi(mapImageCenter.Imageheight)
 	if err != nil {
-		http.Error(w, "Invalid image height value", http.StatusBadRequest)
-		return
+		return nil, errors.New("Invalid image height value")
 	}
 
-	// Extract headers
-	oauthToken := r.Header.Get("Authorization")
+	oauthToken := o.Token
 	if oauthToken == "" {
-		http.Error(w, "Missing OAuth token", http.StatusUnauthorized)
-		return
+		return nil, errors.New("Invalid OAuth token")
 	}
-
-	// Optional parameters
-	markers := r.URL.Query()["marker"]
-	path := r.URL.Query().Get("path")
 
 	// Construct the API URL
 	apiURL := fmt.Sprintf(app.StaticMapImageCenterURL,
-		url.QueryEscape(styleName), longitude, latitude, zoomLevel, imageWidth, imageHeight, imageFormat)
+		url.QueryEscape(mapImageCenter.Stylename), longitude, latitude, zoomLevel, imageWidth, imageHeight, mapImageCenter.Imageformat)
 
 	// Construct query parameters
 	queryParams := url.Values{}
-	if len(markers) > 0 {
-		queryParams.Add("marker", strings.Join(markers, ","))
+	if len(mapImageCenter.Markers) > 0 {
+		queryParams.Add("marker", strings.Join(mapImageCenter.Markers, ","))
 	}
 
-	if path != "" {
-		queryParams.Add("path", path)
+	if mapImageCenter.Path != "" {
+		queryParams.Add("path", mapImageCenter.Path)
 	}
 
 	if len(queryParams) > 0 {
 		apiURL += "?" + queryParams.Encode()
-	}
-
-	// Generate request ID if not provided
-	xRequestID := r.Header.Get("X-Request-Id")
-	if xRequestID == "" {
-		xRequestID = uuid.New().String()
 	}
 
 	// Create and send the external request
 	req, err := http.NewRequest("GET", apiURL, nil)
 	if err != nil {
-		http.Error(w, "Failed to create new request", http.StatusInternalServerError)
-		return
+		return nil, errors.New("failed to send request to Olamaps API")
 	}
 
-	req.Header.Add("X-Request-Id", xRequestID)
+	req.Header.Add("X-Request-Id", o.RequestId)
+
 	if oauthToken != "" {
 		req.Header.Add("Authorization", oauthToken)
 	}
-	if xCorrelationID := r.Header.Get("X-Correlation-Id"); xCorrelationID != "" {
-		req.Header.Add("X-Correlation-Id", xCorrelationID)
-	}
+
+	xCorrelationID := uuid.New().String()
+	req.Header.Add("X-Correlation-Id", xCorrelationID)
 
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-		http.Error(w, "Failed to make external request", http.StatusInternalServerError)
-		return
+		return nil, errors.New("Failed to make external request")
 	}
 	defer resp.Body.Close()
 
-	// Check if the response status is OK
-	if resp.StatusCode != http.StatusOK {
-		http.Error(w, "Failed to fetch image", resp.StatusCode)
-		return
-	}
-
-	// Set the Content-Type header based on image format
-	contentType := "image/" + imageFormat
-	w.Header().Set("Content-Type", contentType)
-
-	// Write the image data to the response writer
-	_, err = io.Copy(w, resp.Body)
-	if err != nil {
-		http.Error(w, "Failed to write image data", http.StatusInternalServerError)
-		return
-	}
+	return resp, nil
 }
 
-func GetStaticMapImageBoundedHandler(w http.ResponseWriter, r *http.Request) {
-	// Extract query parameters
-	styleName := r.URL.Query().Get("styleName")
-	minXStr := r.URL.Query().Get("min_x")
-	minYStr := r.URL.Query().Get("min_y")
-	maxXStr := r.URL.Query().Get("max_x")
-	maxYStr := r.URL.Query().Get("max_y")
-	imageWidthStr := r.URL.Query().Get("width")
-	imageHeightStr := r.URL.Query().Get("height")
-	imageFormat := r.URL.Query().Get("format")
-
-	// Validate required parameters
-	if styleName == "" || minXStr == "" || minYStr == "" || maxXStr == "" || maxYStr == "" || imageWidthStr == "" || imageHeightStr == "" || imageFormat == "" {
-		http.Error(w, "Missing required query parameters", http.StatusBadRequest)
-		return
+// GetStaticMapImageBounded
+func (o *OLAMap) GetStaticMapImageBounded(mapImageBounded internal.MapImageBounded) (interface{}, error) {
+	if mapImageBounded.Stylename == "" || mapImageBounded.Minxstr == "" || mapImageBounded.Minystr == "" || mapImageBounded.Maxxstr == "" || mapImageBounded.Maxystr == "" || mapImageBounded.Imagewidth == "" || mapImageBounded.Imageheight == "" || mapImageBounded.Imageformat == "" {
+		return nil, errors.New("Missing required query parameters: 'styleName' or 'minXStr' or 'minYStr' or 'maxXStr' or 'maxYStr' or 'imageWidthStr' or 'imageHeightStr' or 'imageFormat'")
 	}
 
-	minX, err := strconv.ParseFloat(minXStr, 64)
+	minX, err := strconv.ParseFloat(mapImageBounded.Minxstr, 64)
 	if err != nil {
-		http.Error(w, "Invalid min_x value", http.StatusBadRequest)
-		return
+		return nil, errors.New("Invalid min_x value")
 	}
 
-	minY, err := strconv.ParseFloat(minYStr, 64)
+	minY, err := strconv.ParseFloat(mapImageBounded.Minystr, 64)
 	if err != nil {
-		http.Error(w, "Invalid min_y value", http.StatusBadRequest)
-		return
+		return nil, errors.New("Invalid min_y value")
 	}
 
-	maxX, err := strconv.ParseFloat(maxXStr, 64)
+	maxX, err := strconv.ParseFloat(mapImageBounded.Maxxstr, 64)
 	if err != nil {
-		http.Error(w, "Invalid max_x value", http.StatusBadRequest)
-		return
+		return nil, errors.New("Invalid max_x value")
 	}
 
-	maxY, err := strconv.ParseFloat(maxYStr, 64)
+	maxY, err := strconv.ParseFloat(mapImageBounded.Maxystr, 64)
 	if err != nil {
-		http.Error(w, "Invalid max_y value", http.StatusBadRequest)
-		return
+		return nil, errors.New("Invalid max_y value")
 	}
 
-	imageWidth, err := strconv.Atoi(imageWidthStr)
+	imageWidth, err := strconv.Atoi(mapImageBounded.Imagewidth)
 	if err != nil {
-		http.Error(w, "Invalid image width value", http.StatusBadRequest)
-		return
+		return nil, errors.New("Invalid image width value")
 	}
 
-	imageHeight, err := strconv.Atoi(imageHeightStr)
+	imageHeight, err := strconv.Atoi(mapImageBounded.Imageheight)
 	if err != nil {
-		http.Error(w, "Invalid image height value", http.StatusBadRequest)
-		return
+		return nil, errors.New("Invalid image height value")
 	}
 
-	// Extract headers
-	oauthToken := r.Header.Get("Authorization")
+	oauthToken := o.Token
 	if oauthToken == "" {
-		http.Error(w, "Missing OAuth token", http.StatusUnauthorized)
-		return
+		return nil, errors.New("Invalid OAuth token")
 	}
-
-	// Optional parameters
-	markers := r.URL.Query()["marker"]
-	path := r.URL.Query().Get("path")
-	xRequestID := r.Header.Get("X-Request-Id")
-	xCorrelationID := r.Header.Get("X-Correlation-Id")
 
 	// Construct the API URL
 	apiURL := fmt.Sprintf(app.StaticMapImageBoundedURL,
-		url.QueryEscape(styleName), minX, minY, maxX, maxY, imageWidth, imageHeight, imageFormat)
+		url.QueryEscape(mapImageBounded.Stylename), minX, minY, maxX, maxY, imageWidth, imageHeight, mapImageBounded.Imageformat)
 
 	// Construct query parameters
 	queryParams := url.Values{}
-	if len(markers) > 0 {
-		queryParams.Add("marker", strings.Join(markers, ","))
+	if len(mapImageBounded.Markers) > 0 {
+		queryParams.Add("marker", strings.Join(mapImageBounded.Markers, ","))
 	}
 
-	if path != "" {
-		queryParams.Add("path", path)
+	if mapImageBounded.Path != "" {
+		queryParams.Add("path", mapImageBounded.Path)
 	}
 
 	if len(queryParams) > 0 {
 		apiURL += "?" + queryParams.Encode()
 	}
 
-	// Generate request ID if not provided
-	if xRequestID == "" {
-		xRequestID = uuid.New().String()
-	}
-
 	// Make the external request
 	req, err := http.NewRequest("GET", apiURL, nil)
 	if err != nil {
-		http.Error(w, "Failed to create new request", http.StatusInternalServerError)
-		return
+		return nil, errors.New("failed to send request to Olamaps API")
 	}
 
-	req.Header.Add("X-Request-Id", xRequestID)
+	req.Header.Add("X-Request-Id", o.RequestId)
+	req.Header.Add("X-Correlation-Id", o.RequestId)
+
 	if oauthToken != "" {
 		req.Header.Add("Authorization", oauthToken)
-	}
-	if xCorrelationID != "" {
-		req.Header.Add("X-Correlation-Id", xCorrelationID)
 	}
 
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-		http.Error(w, "Failed to make external request", http.StatusInternalServerError)
-		return
+		return nil, errors.New("Failed to make external request")
 	}
 	defer resp.Body.Close()
 
-	// Check if the response status is OK
-	if resp.StatusCode != http.StatusOK {
-		http.Error(w, "Failed to fetch image", resp.StatusCode)
-		return
-	}
-
-	// Set the Content-Type header based on image format
-	contentType := "image/" + imageFormat
-	w.Header().Set("Content-Type", contentType)
-
-	// Write the image data to the response writer
-	_, err = io.Copy(w, resp.Body)
-	if err != nil {
-		http.Error(w, "Failed to write image data", http.StatusInternalServerError)
-		return
-	}
+	return resp, err
 }
 
-func StaticMapImageHandler(w http.ResponseWriter, r *http.Request) {
-	// Extract query parameters
-	styleName := r.URL.Query().Get("styleName")
-	imageWidthStr := r.URL.Query().Get("width")
-	imageHeightStr := r.URL.Query().Get("height")
-	imageFormat := r.URL.Query().Get("format")
-	path := r.URL.Query().Get("path")
-	markers := r.URL.Query()["marker"]
-
-	// Validate required parameters
-	if styleName == "" || imageWidthStr == "" || imageHeightStr == "" || imageFormat == "" {
-		http.Error(w, "Missing required query parameters", http.StatusBadRequest)
-		return
+// StaticMapImage
+func (o *OLAMap) StaticMapImage(mapImage internal.MapImage) (interface{}, error) {
+	if mapImage.Stylename == "" || mapImage.Imagewidth == "" || mapImage.Imageheight == "" || mapImage.Imageformat == "" || mapImage.Path == "" {
+		return nil, errors.New("Missing required query parameters: 'stylename' or 'imagewidth' or 'imageheight' or 'imageformat' or path")
 	}
 
-	imageWidth, err := strconv.Atoi(imageWidthStr)
+	imageWidth, err := strconv.Atoi(mapImage.Imagewidth)
 	if err != nil {
-		http.Error(w, "Invalid image width value", http.StatusBadRequest)
-		return
+		return nil, errors.New("Invalid image width value")
 	}
 
-	imageHeight, err := strconv.Atoi(imageHeightStr)
+	imageHeight, err := strconv.Atoi(mapImage.Imageheight)
 	if err != nil {
-		http.Error(w, "Invalid image height value", http.StatusBadRequest)
-		return
+		return nil, errors.New("Invalid image height value")
+	}
+
+	oauthToken := o.Token
+	if oauthToken == "" {
+		return nil, errors.New("Invalid OAuth token")
 	}
 
 	// Construct the API URL
-	apiURL := fmt.Sprintf(app.StaticMapImageURL, url.QueryEscape(styleName), imageWidth, imageHeight, imageFormat)
+	apiURL := fmt.Sprintf(app.StaticMapImageURL, url.QueryEscape(mapImage.Stylename), imageWidth, imageHeight, mapImage.Imageformat)
 
 	// Construct query parameters
 	queryParams := url.Values{}
-	if len(markers) > 0 {
-		queryParams.Add("marker", strings.Join(markers, ","))
+	if len(mapImage.Markers) > 0 {
+		queryParams.Add("marker", strings.Join(mapImage.Markers, ","))
 	}
 
-	if path != "" {
-		queryParams.Add("path", path)
+	if mapImage.Path != "" {
+		queryParams.Add("path", mapImage.Path)
 	}
 
 	if len(queryParams) > 0 {
@@ -870,35 +548,20 @@ func StaticMapImageHandler(w http.ResponseWriter, r *http.Request) {
 	// Create a new request
 	req, err := http.NewRequest("GET", apiURL, nil)
 	if err != nil {
-		http.Error(w, "Failed to create request", http.StatusInternalServerError)
-		return
+		return nil, errors.New("Failed to create request")
+	}
+
+	if oauthToken != "" {
+		req.Header.Add("Authorization", oauthToken)
 	}
 
 	// Make the request
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-		http.Error(w, "Failed to send request", http.StatusInternalServerError)
-		return
+		return nil, errors.New("Failed to send request")
 	}
 	defer resp.Body.Close()
 
-	// Handle response
-	switch resp.StatusCode {
-	case http.StatusOK:
-		// Write the image data to the response writer
-		w.Header().Set("Content-Type", "image/"+imageFormat)
-		body, err := io.ReadAll(resp.Body)
-		if err != nil {
-			http.Error(w, "Failed to read response body", http.StatusInternalServerError)
-			return
-		}
-		_, err = w.Write(body)
-		if err != nil {
-			http.Error(w, "Failed to write response body", http.StatusInternalServerError)
-			return
-		}
-	default:
-		http.Error(w, fmt.Sprintf("Error: %s", resp.Status), resp.StatusCode)
-	}
+	return resp, nil
 }
