@@ -10,8 +10,13 @@ import (
 )
 
 type OLAMap struct {
-	Token     string // Ola map token
-	RequestId string // Unique UUID for a request
+	Token       string   // Ola map token
+	RequestId   string   // Unique UUID for a request
+	HttpService HttpServ // HTTP service interface
+}
+
+type HttpServ interface {
+	SendOlaMapRequest(method, url, requestID, oauthToken string, responseObj interface{}) error
 }
 
 type TokenResponse struct {
@@ -22,8 +27,10 @@ type TokenResponse struct {
 
 // Initialize the Olamap with X-RequestID
 func Initialize(requestID string) *OLAMap {
+	httpReq := &OlaRequest{}
 	return &OLAMap{
-		RequestId: requestID,
+		RequestId:   requestID,
+		HttpService: httpReq,
 	}
 }
 
@@ -56,7 +63,7 @@ func (o *OLAMap) ConfigureAccessToken(clientID, clientSecret string) error {
 		return err
 	}
 
-	o.Token = tokenResponse.AccessToken
+	o.Token = "Bearer " + tokenResponse.AccessToken
 
 	return nil
 }

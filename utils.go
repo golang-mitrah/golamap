@@ -6,7 +6,9 @@ import (
 	"net/http"
 )
 
-func MakeExternalRequest(method, url, requestID, oauthToken string, responseObj interface{}) error {
+type OlaRequest struct{}
+
+func (o *OlaRequest) SendOlaMapRequest(method, url, requestID, oauthToken string, responseObj interface{}) error {
 	// Create a new request
 	req, err := http.NewRequest(method, url, nil)
 	if err != nil {

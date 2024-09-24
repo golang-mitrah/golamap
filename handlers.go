@@ -24,11 +24,10 @@ func (o *OLAMap) GetDirections(origin, destination string) (interface{}, error) 
 
 	url := fmt.Sprintf(DirectionsURL, origin, destination)
 
-	// Define a variable to hold the API response
-	var apiResponse map[string]interface{}
+	var apiResponse Directions
 
 	// Make external request
-	err := MakeExternalRequest("POST", url, o.RequestId, oauthToken, &apiResponse)
+	err := o.HttpService.SendOlaMapRequest("POST", url, o.RequestId, oauthToken, &apiResponse)
 	if err != nil {
 		return nil, errors.New("failed to send request to Olamaps API")
 	}
@@ -50,11 +49,10 @@ func (o *OLAMap) PlaceAutoComplete(input string) (interface{}, error) {
 	// Construct the URL for the Olamaps API request
 	url := fmt.Sprintf(PlaceAutoCompleteURL, input)
 
-	// Define a variable to hold the API response
-	var apiResponse map[string]interface{}
+	var apiResponse AutoComplete
 
 	// Make the external request
-	err := MakeExternalRequest("GET", url, o.RequestId, oauthToken, &apiResponse)
+	err := o.HttpService.SendOlaMapRequest("GET", url, o.RequestId, oauthToken, &apiResponse)
 	if err != nil {
 		return nil, errors.New("failed to send request to Olamaps API")
 	}
@@ -76,11 +74,10 @@ func (o *OLAMap) GeoCode(address, bounds, language string) (interface{}, error) 
 	// Construct the URL for the Olamaps API request
 	url := fmt.Sprintf(GeoCodeURL, address, bounds, language)
 
-	// Define a variable to hold the API response
-	var apiResponse map[string]interface{}
+	var apiResponse ForwardGecode
 
 	// Make the external request
-	err := MakeExternalRequest("GET", url, o.RequestId, oauthToken, &apiResponse)
+	err := o.HttpService.SendOlaMapRequest("GET", url, o.RequestId, oauthToken, &apiResponse)
 	if err != nil {
 		return nil, errors.New("failed to send request to Olamaps API")
 	}
@@ -102,11 +99,10 @@ func (o *OLAMap) ReverseGeocode(latlng string) (interface{}, error) {
 	// Construct the URL for the API request
 	urlWithParams := fmt.Sprintf(ReverseGeocodeURL, url.QueryEscape(latlng))
 
-	// Define a variable to hold the API response
-	var apiResponse map[string]interface{}
+	var apiResponse ReverseGecode
 
 	// Make the external request
-	err := MakeExternalRequest("GET", urlWithParams, o.RequestId, oauthToken, &apiResponse)
+	err := o.HttpService.SendOlaMapRequest("GET", urlWithParams, o.RequestId, oauthToken, &apiResponse)
 	if err != nil {
 		return nil, errors.New("failed to send request to Olamaps API")
 	}
@@ -129,11 +125,10 @@ func (o *OLAMap) GetDistanceMatrix(origins, destinations string) (interface{}, e
 	url := fmt.Sprintf(DistanceMatrixURL,
 		url.QueryEscape(origins), url.QueryEscape(destinations))
 
-	// Define a variable to hold the API response
-	var apiResponse map[string]interface{}
+	var apiResponse DistanceMatrix
 
 	// Make the external request
-	err := MakeExternalRequest("GET", url, o.RequestId, oauthToken, &apiResponse)
+	err := o.HttpService.SendOlaMapRequest("GET", url, o.RequestId, oauthToken, &apiResponse)
 	if err != nil {
 		return nil, errors.New("failed to send request to Olamaps API")
 	}
@@ -155,11 +150,10 @@ func (o *OLAMap) ArrayOfData(datasetName string) (interface{}, error) {
 	// Construct the URL for the Olamaps API request
 	apiURL := fmt.Sprintf(ArrayOfDataURL, url.QueryEscape(datasetName))
 
-	// Define a variable to hold the API response
-	var apiResponse map[string]interface{}
+	var apiResponse ArrayOfData
 
 	// Make the external request
-	err := MakeExternalRequest("GET", apiURL, o.RequestId, oauthToken, &apiResponse)
+	err := o.HttpService.SendOlaMapRequest("GET", apiURL, o.RequestId, oauthToken, &apiResponse)
 	if err != nil {
 		return nil, errors.New("failed to send request to Olamaps API")
 	}
@@ -181,11 +175,10 @@ func (o *OLAMap) GetStyleDetails(styleName string) (interface{}, error) {
 	// Construct the URL for the Olamaps API request
 	apiURL := fmt.Sprintf(StyleDetailsURL, url.QueryEscape(styleName))
 
-	// Define a variable to hold the API response
-	var apiResponse map[string]interface{}
+	var apiResponse VectorStyleDetails
 
 	// Make the external request
-	err := MakeExternalRequest("GET", apiURL, o.RequestId, oauthToken, &apiResponse)
+	err := o.HttpService.SendOlaMapRequest("GET", apiURL, o.RequestId, oauthToken, &apiResponse)
 	if err != nil {
 		return nil, errors.New("failed to send request to Olamaps API")
 	}
@@ -202,11 +195,10 @@ func (o *OLAMap) GetMapStyle() (interface{}, error) {
 
 	apiURL := MapStyleURL
 
-	// Define a variable to hold the API response
-	var apiResponse []map[string]interface{}
+	var apiResponse []VectorMapStyle
 
 	// Make the external request
-	err := MakeExternalRequest("GET", apiURL, o.RequestId, oauthToken, &apiResponse)
+	err := o.HttpService.SendOlaMapRequest("GET", apiURL, o.RequestId, oauthToken, &apiResponse)
 	if err != nil {
 		return nil, errors.New("failed to send request to Olamaps API")
 	}
@@ -225,13 +217,12 @@ func (o *OLAMap) GetPlaceDetail(placeID string) (interface{}, error) {
 		return nil, errors.New("Invalid OAuth token")
 	}
 
-	apiURL := fmt.Sprintf(PlaceDetailURL, placeID) // Replace with your actual endpoint
+	apiURL := fmt.Sprintf(PlaceDetailURL, placeID)
 
-	// Define a variable to hold the API response
-	var apiResponse map[string]interface{}
+	var apiResponse PlaceDetail
 
 	// Make the external request
-	err := MakeExternalRequest("GET", apiURL, o.RequestId, oauthToken, &apiResponse)
+	err := o.HttpService.SendOlaMapRequest("GET", apiURL, o.RequestId, oauthToken, &apiResponse)
 	if err != nil {
 		return nil, errors.New("failed to send request to Olamaps API")
 	}
@@ -252,11 +243,10 @@ func (o *OLAMap) GetNearBySearch(nearBySearch NearBySearch) (interface{}, error)
 
 	apiURL := fmt.Sprintf(NearBySearchURL, nearBySearch.Layers, nearBySearch.Location, nearBySearch.Types, nearBySearch.Radius, nearBySearch.Strictbounds, nearBySearch.WithCentroid, nearBySearch.Limit)
 
-	// Define a variable to hold the API response
-	var apiResponse map[string]interface{}
+	var apiResponse NearBySearchResponse
 
 	// Make the external request
-	err := MakeExternalRequest("GET", apiURL, o.RequestId, oauthToken, &apiResponse)
+	err := o.HttpService.SendOlaMapRequest("GET", apiURL, o.RequestId, oauthToken, &apiResponse)
 	if err != nil {
 		return nil, errors.New("failed to send request to Olamaps API")
 	}
@@ -279,11 +269,10 @@ func (o *OLAMap) GetTextSearch(textSearch TextSearch) (interface{}, error) {
 	// Construct the API URL
 	apiURL := fmt.Sprintf(TextSearchURL, url.QueryEscape(textSearch.Input), textSearch.Location, textSearch.Radius, textSearch.Types, textSearch.Size)
 
-	// Define a variable to hold the API response
-	var apiResponse map[string]interface{}
+	var apiResponse TextBySearch
 
 	// Make the external request
-	err := MakeExternalRequest("GET", apiURL, o.RequestId, oauthToken, &apiResponse)
+	err := o.HttpService.SendOlaMapRequest("GET", apiURL, o.RequestId, oauthToken, &apiResponse)
 	if err != nil {
 		return nil, errors.New("failed to send request to Olamaps API")
 	}
@@ -309,8 +298,8 @@ func (o *OLAMap) GetSnapToRoad(points, enhancePath string) (interface{}, error) 
 	}.Encode())
 
 	// Make the external request
-	var apiResponse map[string]interface{}
-	err := MakeExternalRequest("GET", apiURL, o.RequestId, oauthToken, &apiResponse)
+	var apiResponse SnapToRoad
+	err := o.HttpService.SendOlaMapRequest("GET", apiURL, o.RequestId, oauthToken, &apiResponse)
 	if err != nil {
 		return nil, errors.New("failed to send request to Olamaps API")
 	}
@@ -332,11 +321,10 @@ func (o *OLAMap) GetNearestRoads(points string, radius string) (interface{}, err
 	// Build the API URL
 	apiURL := fmt.Sprintf(NearestRoadsURL, points, radius)
 
-	// Define a variable to hold the API response
-	var apiResponse map[string]interface{}
+	var apiResponse NearestRoad
 
 	// Make the external request
-	err := MakeExternalRequest("GET", apiURL, o.RequestId, oauthToken, &apiResponse)
+	err := o.HttpService.SendOlaMapRequest("GET", apiURL, o.RequestId, oauthToken, &apiResponse)
 	if err != nil {
 		return nil, errors.New("failed to send request to Olamaps API")
 	}
