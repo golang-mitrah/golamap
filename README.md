@@ -17,7 +17,6 @@ This Go package provides a wrapper for the OLA Map API, allowing you to interact
 - Provides methods to interact with OLA Map and its data structures.
 - Supports searching and querying geographical data using OLA codes.
 - Lightweight and performant implementation suitable for production use.
-- Supports searching and querying geographical data using OLA codes.
 - Customizable: Add additional utilities to enhance functionality.
 
 ## Installation
