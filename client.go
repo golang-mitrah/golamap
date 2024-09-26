@@ -55,7 +55,7 @@ func (o *OLAMap) ConfigureAccessToken(clientID, clientSecret string) error {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return errors.New(fmt.Sprintf("Failed to get token - statuscode %s", resp.StatusCode))
+		return errors.New(fmt.Sprintf("Failed to get token - statuscode %v", resp.StatusCode))
 	}
 
 	var tokenResponse TokenResponse
